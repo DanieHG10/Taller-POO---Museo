@@ -465,3 +465,382 @@ class SistemaAutenticacion:
             info += f"Usuario: {user.usuario} | Contraseña: {user.contraseña} | Rol: {user.__class__.__name__}\n"
         return info
 
+# INTERFAZ DE USUARIO (MENÚ INTERACTIVO)
+
+def validar_float(mensaje: str, permitir_negativo: bool = False) -> float:
+    
+    #Valida la entrada de un número decimal.
+    
+    while True:
+        try:
+            valor = float(input(mensaje))
+            if not permitir_negativo and valor < 0:
+                print("❌ Error: El valor no puede ser negativo.")
+                continue
+            return valor
+        except ValueError:
+            print("❌ Error: Ingrese un número válido.")
+
+
+def validar_fecha(mensaje: str) -> datetime:
+    
+    #Valida la entrada de una fecha.
+    
+    while True:
+        try:
+            fecha_str = input(mensaje + " (DD/MM/YYYY): ")
+            return datetime.strptime(fecha_str, "%d/%m/%Y")
+        except ValueError:
+            print("❌ Error: Formato de fecha inválido. Use DD/MM/YYYY")
+
+
+def menu_registrar_cuadro(gestor: GestorMuseo) -> None:
+    #Menú para registrar un nuevo cuadro
+    print("\n=== REGISTRAR NUEVO CUADRO ===")
+    
+    autor = input("Autor: ")
+    periodo = input("Período artístico: ")
+    valor = validar_float("Valor ($): ")
+    fecha_creacion = validar_fecha("Fecha de creación")
+    fecha_entrada = validar_fecha("Fecha de entrada al museo")
+    estilo = input("Estilo artístico: ")
+    tecnica = input("Técnica pictórica: ")
+    
+    cuadro = gestor.registrar_cuadro(autor, periodo, valor, 
+                                     fecha_creacion, fecha_entrada,
+                                     estilo, tecnica)
+    print(f"\n✅ Cuadro registrado exitosamente con ID: {cuadro.id_obra}")
+
+
+def menu_registrar_escultura(gestor: GestorMuseo) -> None:
+    #Menú para registrar una nueva escultura
+    print("\n=== REGISTRAR NUEVA ESCULTURA ===")
+    
+    autor = input("Autor: ")
+    periodo = input("Período artístico: ")
+    valor = validar_float("Valor ($): ")
+    fecha_creacion = validar_fecha("Fecha de creación")
+    fecha_entrada = validar_fecha("Fecha de entrada al museo")
+    estilo = input("Estilo artístico: ")
+    material = input("Material: ")
+    
+    escultura = gestor.registrar_escultura(autor, periodo, valor,
+                                          fecha_creacion, fecha_entrada,
+                                          estilo, material)
+    print(f"\n✅ Escultura registrada exitosamente con ID: {escultura.id_obra}")
+
+
+def menu_registrar_objeto(gestor: GestorMuseo) -> None:
+    #Menú para registrar un nuevo objeto
+    print("\n=== REGISTRAR NUEVO OBJETO ===")
+    
+    autor = input("Autor: ")
+    periodo = input("Período artístico: ")
+    valor = validar_float("Valor ($): ")
+    fecha_creacion = validar_fecha("Fecha de creación")
+    fecha_entrada = validar_fecha("Fecha de entrada al museo")
+    descripcion = input("Descripción del objeto: ")
+    
+    objeto = gestor.registrar_objeto(autor, periodo, valor,
+                                    fecha_creacion, fecha_entrada,
+                                    descripcion)
+    print(f"\n✅ Objeto registrado exitosamente con ID: {objeto.id_obra}")
+
+
+def menu_consultar_obras(gestor: GestorMuseo) -> None:
+    #Menú para consultar obras registradas
+    obras = gestor.obtener_obras()
+    
+    if not obras:
+        print("\n❌ No hay obras registradas.")
+        return
+    
+    print(f"\n=== OBRAS REGISTRADAS ({len(obras)}) ===")
+    for i, obra in enumerate(obras, 1):
+        print(f"{i}. {obra.id_obra} - {obra.autor} ({obra.__class__.__name__}) - ${obra.valor:.2f}")
+    
+    print("\n¿Desea ver detalles de alguna obra? (s/n): ", end="")
+    if input().lower() == 's':
+        id_obra = input("Ingrese el ID de la obra: ")
+        obra = gestor.obtener_obra_por_id(id_obra)
+        if obra:
+            print(obra.obtener_info_completa())
+        else:
+            print("❌ Obra no encontrada.")
+
+
+def menu_restaurador_jefe(gestor: GestorMuseo) -> None:
+    #Menú interactivo para el Restaurador Jefe
+    while True:
+        usuario_actual = gestor.usuario_autenticado
+        print(usuario_actual.obtener_menu())
+        opcion = input("Seleccione una opción: ").strip()
+        
+        if opcion == "1":
+            # Ver obras que necesitan restauración
+            obras_a_restaurar = gestor.obtener_obras_para_restauracion_automatica()
+            
+            if not obras_a_restaurar:
+                print("\n✅ No hay obras que requieran restauración automática en este momento.")
+            else:
+                print(f"\n=== OBRAS QUE NECESITAN RESTAURACIÓN ({len(obras_a_restaurar)}) ===")
+                for i, obra in enumerate(obras_a_restaurar, 1):
+                    dias = (datetime.now() - obra.fecha_entrada).days
+                    print(f"{i}. {obra.id_obra} - {obra.autor} (En museo: {dias // 365} años)")
+        
+        elif opcion == "2":
+            # Iniciar restauración
+            if not gestor.obtener_obras():
+                print("\n❌ No hay obras registradas.")
+                continue
+            
+            print("\n=== INICIAR RESTAURACIÓN ===")
+            obras = gestor.obtener_obras()
+            for i, obra in enumerate(obras, 1):
+                estado_info = f" ({obra.estado.value})" if obra.estado != EstadoObra.EXPUESTA else ""
+                print(f"{i}. {obra.id_obra} - {obra.autor}{estado_info}")
+            
+            id_obra = input("\nIngrese el ID de la obra a restaurar: ")
+            
+            print("\nTipos de restauración:")
+            for i, tipo in enumerate(TipoRestauracion, 1):
+                print(f"{i}. {tipo.value}")
+            
+            try:
+                tipo_idx = int(input("Seleccione el tipo de restauración (número): ")) - 1
+                tipo_restauracion = list(TipoRestauracion)[tipo_idx]
+                
+                restauracion = gestor.iniciar_restauracion(id_obra, tipo_restauracion)
+                if restauracion:
+                    print(f"\n✅ Restauración iniciada exitosamente.")
+                    print(restauracion.obtener_info())
+                else:
+                    print("\n❌ No se pudo iniciar la restauración. Verifique el ID de la obra.")
+            except (ValueError, IndexError):
+                print("❌ Selección inválida.")
+        
+        elif opcion == "3":
+            # Finalizar restauración
+            print("\n=== FINALIZAR RESTAURACIÓN ===")
+            id_obra = input("Ingrese el ID de la obra: ")
+            
+            if gestor.finalizar_restauracion(id_obra):
+                print(f"\n✅ Restauración finalizada exitosamente.")
+            else:
+                print("\n❌ No se encontró restauración en progreso para esta obra.")
+        
+        elif opcion == "4":
+            # Consultar historial de restauraciones
+            print("\n=== HISTORIAL DE RESTAURACIONES ===")
+            id_obra = input("Ingrese el ID de la obra: ")
+            obra = gestor.obtener_obra_por_id(id_obra)
+            
+            if obra:
+                historial = obra.obtener_historial_restauraciones()
+                if not historial:
+                    print(f"La obra {id_obra} no tiene restauraciones registradas.")
+                else:
+                    print(f"\nHistorial de restauraciones para {id_obra}:")
+                    for restauracion in historial:
+                        print(restauracion.obtener_info())
+            else:
+                print("❌ Obra no encontrada.")
+        
+        elif opcion == "5":
+            print("\n👋 Cerrando sesión...")
+            break
+        
+        else:
+            print("❌ Opción no válida.")
+
+
+def menu_director(gestor: GestorMuseo) -> None:
+    #Menú interactivo para el Director
+    while True:
+        usuario_actual = gestor.usuario_autenticado
+        print(usuario_actual.obtener_menu())
+        opcion = input("Seleccione una opción: ").strip()
+        
+        if opcion == "1":
+            # Consultar valoración total
+            total = gestor.calcular_valoracion_total()
+            print(f"\n=== VALORACIÓN TOTAL DEL MUSEO ===")
+            print(f"Total: ${total:,.2f}")
+            print(f"Número de obras en exposición: {len([o for o in gestor.obtener_obras() if o.estado == EstadoObra.EXPUESTA])}")
+        
+        elif opcion == "2":
+            # Ceder obra
+            if not gestor.museos_colaboradores:
+                print("\n❌ No hay museos colaboradores registrados. Registre uno primero.")
+                continue
+            
+            print("\n=== CEDER OBRA A OTRO MUSEO ===")
+            obras_disponibles = [o for o in gestor.obtener_obras() if o.puede_ser_cedida()]
+            
+            if not obras_disponibles:
+                print("❌ No hay obras disponibles para cesión.")
+                continue
+            
+            for i, obra in enumerate(obras_disponibles, 1):
+                print(f"{i}. {obra.id_obra} - {obra.autor} - ${obra.valor:.2f}")
+            
+            id_obra = input("Ingrese el ID de la obra: ")
+            
+            print("\nMuseos colaboradores:")
+            for i, museo in enumerate(gestor.museos_colaboradores, 1):
+                print(f"{i}. {museo}")
+            
+            museo_cesionario = input("Seleccione el museo cesionario: ")
+            importe = validar_float("Importe de la cesión ($): ")
+            fecha_fin = validar_fecha("Fecha de fin de la cesión")
+            
+            cesion = gestor.ceder_obra(id_obra, museo_cesionario, importe, fecha_fin)
+            if cesion:
+                print("\n✅ Obra cedida exitosamente.")
+                print(cesion.obtener_info())
+            else:
+                print("\n❌ No se pudo ceder la obra. Verifique los datos.")
+        
+        elif opcion == "3":
+            # Consultar cesiones vigentes
+            cesiones_vigentes = gestor.obtener_cesiones_vigentes()
+            
+            if not cesiones_vigentes:
+                print("\n✅ No hay cesiones vigentes en este momento.")
+            else:
+                print(f"\n=== CESIONES VIGENTES ({len(cesiones_vigentes)}) ===")
+                for cesion in cesiones_vigentes:
+                    print(cesion.obtener_info())
+        
+        elif opcion == "4":
+            # Registrar museo colaborador
+            print("\n=== REGISTRAR MUSEO COLABORADOR ===")
+            nombre_museo = input("Nombre del museo: ")
+            
+            if gestor.registrar_museo_colaborador(nombre_museo):
+                print(f"✅ Museo '{nombre_museo}' registrado exitosamente.")
+            else:
+                print(f"❌ El museo '{nombre_museo}' ya está registrado.")
+        
+        elif opcion == "5":
+            print("\n👋 Cerrando sesión...")
+            break
+        
+        else:
+            print("❌ Opción no válida.")
+
+
+def menu_encargado_catalogo(gestor: GestorMuseo) -> None:
+    #Menú interactivo para el Encargado de Catálogo
+    while True:
+        usuario_actual = gestor.usuario_autenticado
+        print(usuario_actual.obtener_menu())
+        opcion = input("Seleccione una opción: ").strip()
+        
+        if opcion == "1":
+            menu_registrar_cuadro(gestor)
+        elif opcion == "2":
+            menu_registrar_escultura(gestor)
+        elif opcion == "3":
+            menu_registrar_objeto(gestor)
+        elif opcion == "4":
+            menu_consultar_obras(gestor)
+        elif opcion == "5":
+            print("\n👋 Cerrando sesión...")
+            break
+        else:
+            print("❌ Opción no válida.")
+
+
+def menu_visitante(gestor: GestorMuseo) -> None:
+    #Menú interactivo para Visitantes
+    while True:
+        usuario_actual = gestor.usuario_autenticado
+        print(usuario_actual.obtener_menu())
+        opcion = input("Seleccione una opción: ").strip()
+        
+        if opcion == "1":
+            menu_consultar_obras(gestor)
+        elif opcion == "2":
+            print("\n=== DETALLES DE OBRA ===")
+            id_obra = input("Ingrese el ID de la obra: ")
+            obra = gestor.obtener_obra_por_id(id_obra)
+            if obra:
+                print(obra.obtener_info_completa())
+            else:
+                print("❌ Obra no encontrada.")
+        elif opcion == "3":
+            print("\n👋 Gracias por visitarnos. ¡Hasta pronto!")
+            break
+        else:
+            print("❌ Opción no válida.")
+
+
+def pantalla_principal(gestor: GestorMuseo, autenticacion: SistemaAutenticacion) -> None:
+    #Pantalla principal del sistema
+    while True:
+        print("""   SISTEMA DE GESTIÓN DE OBRAS DEL MUSEO   
+                      
+        1. Iniciar sesión
+        2. Ver usuarios de demostración
+        3. Salir
+        """)
+        
+        opcion = input("Seleccione una opción: ").strip()
+        
+        if opcion == "1":
+            usuario = input("\nUsuario: ")
+            contraseña = input("Contraseña: ")
+            
+            usuario_autenticado = autenticacion.autenticar(usuario, contraseña)
+            
+            if usuario_autenticado:
+                print(f"\n✅ ¡Bienvenido, {usuario_autenticado.nombre}!")
+                gestor.usuario_autenticado = usuario_autenticado
+                
+                # Derivar al menú correspondiente según el tipo de usuario
+                if isinstance(usuario_autenticado, EncargadoCatalogo):
+                    menu_encargado_catalogo(gestor)
+                elif isinstance(usuario_autenticado, RestauradorJefe):
+                    menu_restaurador_jefe(gestor)
+                elif isinstance(usuario_autenticado, Director):
+                    menu_director(gestor)
+                elif isinstance(usuario_autenticado, Visitante):
+                    menu_visitante(gestor)
+            else:
+                print("❌ Usuario o contraseña incorrectos.")
+        
+        elif opcion == "2":
+            print("\n" + autenticacion.obtener_usuarios_demo())
+        
+        elif opcion == "3":
+            print("\n👋 ¡Gracias por usar el sistema! Adiós.")
+            break
+        
+        else:
+            print("❌ Opción no válida.")
+
+
+# ============================================================================
+# PUNTO DE ENTRADA DEL PROGRAMA
+# ============================================================================
+
+if __name__ == "__main__":
+    """
+    Punto de entrada principal del sistema.
+    
+    Se inicializa:
+    1. El sistema de autenticación
+    2. El gestor del museo
+    3. Se inicia la pantalla principal interactiva
+    """
+    print("\n" + "="*50)
+    print("INICIANDO SISTEMA DE GESTIÓN DE OBRAS DE ARTE")
+    print("="*50 + "\n")
+    
+    # Crear instancias de los sistemas principales
+    gestor_museo = GestorMuseo()
+    sistema_autenticacion = SistemaAutenticacion()
+    
+    # Iniciar la interfaz principal
+    pantalla_principal(gestor_museo, sistema_autenticacion)
